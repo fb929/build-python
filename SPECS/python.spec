@@ -9,6 +9,8 @@ Source0:        https://www.python.org/ftp/python/%{version}/Python-%{version}.t
 
 BuildRequires:  gcc, openssl-devel, bzip2-devel, libffi-devel, zlib-devel
 
+%global __brp_python_bytecompile %{nil}
+
 %description
 Python is an interpreted, interactive, object-oriented programming language.
 
