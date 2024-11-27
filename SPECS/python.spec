@@ -33,3 +33,4 @@ make altinstall DESTDIR=%{buildroot}
 %files
 /usr/local/bin/python3.13
 /usr/local/lib/python3.13
+%exclude /usr/local
