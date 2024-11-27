@@ -21,7 +21,10 @@ Python is an interpreted, interactive, object-oriented programming language.
 export PATH=%{buildroot}/usr/local/bin:$PATH
 echo "Current PATH: $PATH"
 
-./configure --enable-optimizations
+./configure \
+    --prefix=/usr \
+    --exec-prefix=/ \
+    --enable-optimizations
 make %{?_smp_mflags}
 
 %install
