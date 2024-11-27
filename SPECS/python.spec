@@ -31,6 +31,7 @@ echo "Current PATH: $PATH"
 make altinstall DESTDIR=%{buildroot}
 
 %files
-/usr/local/bin/python3.13
-/usr/local/lib/python3.13
-%exclude /usr/local
+/usr/local/bin
+/usr/local/lib
+/usr/local/share
+%exclude /usr/local/include/python3.13
