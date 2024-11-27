@@ -18,10 +18,9 @@ Python is an interpreted, interactive, object-oriented programming language.
 %build
 ./configure --enable-optimizations
 make %{?_smp_mflags}
-export PYTHON=%{buildroot}/usr/local/bin/python3.13
 
 %install
-make altinstall DESTDIR=%{buildroot}
+make altinstall
 
 %files
 /usr/local/bin/python3.13
