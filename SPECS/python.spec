@@ -16,17 +16,17 @@ Python is an interpreted, interactive, object-oriented programming language.
 %setup -q -n Python-%{version}
 
 %build
-export PATH=/usr/local/bin:$PATH
+export PATH=%{buildroot}/usr/local/bin:$PATH
 echo "Current PATH: $PATH"
 
 ./configure --enable-optimizations
 make %{?_smp_mflags}
 
 %install
-export PATH=/usr/local/bin:$PATH
+export PATH=%{buildroot}/usr/local/bin:$PATH
 echo "Current PATH: $PATH"
 
-make altinstall
+make altinstall DESTDIR=%{buildroot}
 
 %files
 /usr/local/bin/python3.13
