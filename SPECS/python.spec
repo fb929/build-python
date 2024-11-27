@@ -40,7 +40,7 @@ mv %{buildroot}/usr/local/bin/* %{buildroot}/bin/
 mv %{buildroot}/usr/local/lib/python3.13/* %{buildroot}/usr/lib64/python3.13/
 mv %{buildroot}/usr/local/lib/pkgconfig/* %{buildroot}/usr/lib64/pkgconfig/
 mv %{buildroot}/usr/local/lib/libpython3.13.a %{buildroot}/usr/lib64/
-mv %{buildroot}/usr/share/* %{buildroot}/usr/share/
+mv %{buildroot}/usr/local/share/* %{buildroot}/usr/share/
 
 %files
 /bin
