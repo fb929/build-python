@@ -32,8 +32,9 @@ echo "Current PATH: $PATH"
 make altinstall DESTDIR=%{buildroot}
 
 # fix files path
-mkdir -p \
-    %{buildroot}/bin \
+install --mode=0755 --directory %{buildroot}/usr
+install --mode=0555 --directory %{buildroot}/bin %{buildroot}/usr/lib64
+install --mode=0755 --directory \
     %{buildroot}/usr/lib64/python3.13 \
     %{buildroot}/usr/lib64/pkgconfig \
     %{buildroot}/usr/share
@@ -45,6 +46,6 @@ mv %{buildroot}/usr/local/share/* %{buildroot}/usr/share/
 rm -rf %{buildroot}/usr/local/include
 
 %files
-/bin
-/usr/lib64
-/usr/share
+/bin/*
+/usr/lib64/*
+/usr/share/*
