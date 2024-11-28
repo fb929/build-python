@@ -10,6 +10,8 @@
 # pybasever without the dot:
 %global pyshortver 312
 
+%global python_wheel_pkg_prefix python3.12
+
 Name: python%{pybasever}
 Summary: Version %{pybasever} of the Python interpreter
 URL: https://www.python.org/
