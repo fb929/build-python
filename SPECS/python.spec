@@ -41,9 +41,9 @@ mv %{buildroot}/usr/local/lib/python3.13/* %{buildroot}/usr/lib64/python3.13/
 mv %{buildroot}/usr/local/lib/pkgconfig/* %{buildroot}/usr/lib64/pkgconfig/
 mv %{buildroot}/usr/local/lib/libpython3.13.a %{buildroot}/usr/lib64/
 mv %{buildroot}/usr/local/share/* %{buildroot}/usr/share/
+rm -rf %{buildroot}/usr/local/include
 
 %files
 /bin
 /usr/lib64
 /usr/share
-%exclude /usr/local/include/python3.13
