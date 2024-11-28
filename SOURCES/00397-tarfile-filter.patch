@@ -1,0 +1,286 @@
+From ddd8064257a1916726b784d43f18e889ea1634f7 Mon Sep 17 00:00:00 2001
+From: Petr Viktorin <encukou@gmail.com>
+Date: Tue, 2 Jul 2024 11:40:37 +0200
+Subject: [PATCH] CVE-2007-4559, PEP-706: Add filters for tarfile extraction
+ (downstream)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add and test RHEL-specific ways of configuring the default behavior: environment
+variable and config file.
+
+Co-Authored-By: Tomáš Hrnčiar <thrnciar@redhat.com>
+---
+ Lib/tarfile.py           |  47 +++++++++++--
+ Lib/test/test_shutil.py  |   2 +-
+ Lib/test/test_tarfile.py | 147 +++++++++++++++++++++++++++++++++++++--
+ 3 files changed, 185 insertions(+), 11 deletions(-)
+
+diff --git a/Lib/tarfile.py b/Lib/tarfile.py
+index e1487e3..89b6843 100755
+--- a/Lib/tarfile.py
++++ b/Lib/tarfile.py
+@@ -71,6 +71,13 @@ __all__ = ["TarFile", "TarInfo", "is_tarfile", "TarError", "ReadError",
+            "OutsideDestinationError", "SpecialFileError", "AbsolutePathError",
+            "LinkOutsideDestinationError"]
+ 
++# If true, use the safer (but backwards-incompatible) 'tar' extraction filter,
++# rather than 'fully_trusted', by default.
++# The emitted warning is changed to match.
++_RH_SAFER_DEFAULT = True
++
++# System-wide configuration file
++_CONFIG_FILENAME = '/etc/python/tarfile.cfg'
+ 
+ #---------------------------------------------------------
+ # tar constants
+@@ -2218,11 +2225,41 @@ class TarFile(object):
+         if filter is None:
+             filter = self.extraction_filter
+             if filter is None:
+-                warnings.warn(
+-                    'Python 3.14 will, by default, filter extracted tar '
+-                    + 'archives and reject files or modify their metadata. '
+-                    + 'Use the filter argument to control this behavior.',
+-                    DeprecationWarning, stacklevel=3)
++                name = os.environ.get('PYTHON_TARFILE_EXTRACTION_FILTER')
++                if name is None:
++                    try:
++                        file = bltn_open(_CONFIG_FILENAME)
++                    except FileNotFoundError:
++                        pass
++                    else:
++                        import configparser
++                        conf = configparser.ConfigParser(
++                            interpolation=None,
++                            comment_prefixes=('#', ),
++                        )
++                        with file:
++                            conf.read_file(file)
++                        name = conf.get('tarfile',
++                                        'PYTHON_TARFILE_EXTRACTION_FILTER',
++                                        fallback='')
++                if name:
++                    try:
++                        filter = _NAMED_FILTERS[name]
++                    except KeyError:
++                        raise ValueError(f"filter {filter!r} not found") from None
++                    self.extraction_filter = filter
++                    return filter
++                if _RH_SAFER_DEFAULT:
++                    warnings.warn(
++                        'The default behavior of tarfile extraction has been '
++                        + 'changed to disallow common exploits '
++                        + '(including CVE-2007-4559). '
++                        + 'By default, absolute/parent paths are disallowed '
++                        + 'and some mode bits are cleared. '
++                        + 'See https://access.redhat.com/articles/7004769 '
++                        + 'for more details.',
++                        RuntimeWarning, stacklevel=3)
++                    return tar_filter
+                 return fully_trusted_filter
+             if isinstance(filter, str):
+                 raise TypeError(
+diff --git a/Lib/test/test_shutil.py b/Lib/test/test_shutil.py
+index 7bc5d12..88b4bdb 100644
+--- a/Lib/test/test_shutil.py
++++ b/Lib/test/test_shutil.py
+@@ -2096,7 +2096,7 @@ class TestArchives(BaseTest, unittest.TestCase):
+         self.check_unpack_archive(format, filter='fully_trusted')
+         self.check_unpack_archive(format, filter='data')
+         with warnings_helper.check_warnings(
+-                ('Python 3.14', DeprecationWarning)):
++                ('.*CVE-2007-4559', RuntimeWarning)):
+             self.check_unpack_archive(format)
+ 
+     def test_unpack_archive_tar(self):
+diff --git a/Lib/test/test_tarfile.py b/Lib/test/test_tarfile.py
+index 3fbd25e..9aa727e 100644
+--- a/Lib/test/test_tarfile.py
++++ b/Lib/test/test_tarfile.py
+@@ -727,7 +727,17 @@ class MiscReadTestBase(CommonReadTest):
+             tarfile.open(tarname, encoding="iso8859-1") as tar
+         ):
+             directories = [t for t in tar if t.isdir()]
+-            with self.assertWarnsRegex(DeprecationWarning, "Use the filter argument") as cm:
++            with self.assertWarnsRegex(
++                RuntimeWarning,
++                re.escape(
++                    'The default behavior of tarfile extraction has been '
++                    'changed to disallow common exploits '
++                    '(including CVE-2007-4559). '
++                    'By default, absolute/parent paths are disallowed '
++                    'and some mode bits are cleared. '
++                    'See https://access.redhat.com/articles/7004769 '
++                    'for more details.'
++                )) as cm:
+                 tar.extractall(DIR, directories)
+             # check that the stacklevel of the deprecation warning is correct:
+             self.assertEqual(cm.filename, __file__)
+@@ -740,7 +750,17 @@ class MiscReadTestBase(CommonReadTest):
+             tarfile.open(tarname, encoding="iso8859-1") as tar
+         ):
+             tarinfo = tar.getmember(dirtype)
+-            with self.assertWarnsRegex(DeprecationWarning, "Use the filter argument") as cm:
++            with self.assertWarnsRegex(
++                RuntimeWarning,
++                re.escape(
++                    'The default behavior of tarfile extraction has been '
++                    'changed to disallow common exploits '
++                    '(including CVE-2007-4559). '
++                    'By default, absolute/parent paths are disallowed '
++                    'and some mode bits are cleared. '
++                    'See https://access.redhat.com/articles/7004769 '
++                    'for more details.'
++                )) as cm:
+                 tar.extract(tarinfo, path=DIR)
+             # check that the stacklevel of the deprecation warning is correct:
+             self.assertEqual(cm.filename, __file__)
+@@ -3144,8 +3164,8 @@ class NoneInfoExtractTests(ReadTest):
+         tar.errorlevel = 0
+         with ExitStack() as cm:
+             if cls.extraction_filter is None:
+-                cm.enter_context(warnings.catch_warnings(
+-                    action="ignore", category=DeprecationWarning))
++                cm.enter_context(warnings.catch_warnings())
++                warnings.simplefilter(action="ignore", category=RuntimeWarning)
+             tar.extractall(cls.control_dir, filter=cls.extraction_filter)
+         tar.close()
+         cls.control_paths = set(
+@@ -3966,7 +3986,7 @@ class TestExtractionFilters(unittest.TestCase):
+         with ArchiveMaker() as arc:
+             arc.add('foo')
+         with warnings_helper.check_warnings(
+-                ('Python 3.14', DeprecationWarning)):
++                ('.*CVE-2007-4559', RuntimeWarning)):
+             with self.check_context(arc.open(), None):
+                 self.expect_file('foo')
+ 
+@@ -4136,6 +4156,123 @@ class TestExtractionFilters(unittest.TestCase):
+             self.expect_exception(TypeError)  # errorlevel is not int
+ 
+ 
++    @contextmanager
++    def rh_config_context(self, config_lines=None):
++        """Set up for testing various ways of overriding the default filter
++
++        return a triple with:
++        - temporary directory
++        - EnvironmentVarGuard()
++        - a test archive for use with check_* methods below
++
++        If config_lines is given, write them to the config file. Otherwise
++        the config file is missing.
++        """
++        tempdir = pathlib.Path(TEMPDIR) / 'tmp'
++        configfile = tempdir / 'tarfile.cfg'
++        with ArchiveMaker() as arc:
++            arc.add('good')
++            arc.add('ugly', symlink_to='/etc/passwd')
++            arc.add('../bad')
++        with (
++                os_helper.temp_dir(tempdir),
++                support.swap_attr(tarfile, '_CONFIG_FILENAME', str(configfile)),
++                os_helper.EnvironmentVarGuard() as env,
++                arc.open() as tar,
++        ):
++            if config_lines is not None:
++                with configfile.open('w') as f:
++                    for line in config_lines:
++                        print(line, file=f)
++            yield tempdir, env, tar
++
++    def check_rh_default_behavior(self, tar, tempdir):
++        """Check RH default: warn and refuse to extract dangerous files."""
++        with (
++                warnings_helper.check_warnings(
++                    ('.*CVE-2007-4559', RuntimeWarning)),
++                self.assertRaises(tarfile.OutsideDestinationError),
++        ):
++            tar.extractall(tempdir / 'outdir')
++
++    def check_trusted_default(self, tar, tempdir):
++        """Check 'fully_trusted' is configured as the default filter."""
++        with (
++                warnings_helper.check_no_warnings(self),
++        ):
++            tar.extractall(tempdir / 'outdir')
++            self.assertTrue((tempdir / 'outdir/good').exists())
++            self.assertEqual((tempdir / 'outdir/ugly').readlink(),
++                             pathlib.Path('/etc/passwd'))
++            self.assertTrue((tempdir / 'bad').exists())
++
++    def test_rh_default_no_conf(self):
++        with self.rh_config_context() as (tempdir, env, tar):
++            self.check_rh_default_behavior(tar, tempdir)
++
++    def test_rh_default_from_file(self):
++        lines = ['[tarfile]', 'PYTHON_TARFILE_EXTRACTION_FILTER=fully_trusted']
++        with self.rh_config_context(lines) as (tempdir, env, tar):
++            self.check_trusted_default(tar, tempdir)
++
++    def test_rh_empty_config_file(self):
++        """Empty config file -> default behavior"""
++        lines = []
++        with self.rh_config_context(lines) as (tempdir, env, tar):
++            self.check_rh_default_behavior(tar, tempdir)
++
++    def test_empty_config_section(self):
++        """Empty section in config file -> default behavior"""
++        lines = ['[tarfile]']
++        with self.rh_config_context(lines) as (tempdir, env, tar):
++            self.check_rh_default_behavior(tar, tempdir)
++
++    def test_rh_default_empty_config_option(self):
++        """Empty option value in config file -> default behavior"""
++        lines = ['[tarfile]', 'PYTHON_TARFILE_EXTRACTION_FILTER=']
++        with self.rh_config_context(lines) as (tempdir, env, tar):
++            self.check_rh_default_behavior(tar, tempdir)
++
++    def test_bad_config_option(self):
++        """Bad option value in config file -> ValueError"""
++        lines = ['[tarfile]', 'PYTHON_TARFILE_EXTRACTION_FILTER=unknown!']
++        with self.rh_config_context(lines) as (tempdir, env, tar):
++            with self.assertRaises(ValueError):
++                tar.extractall(tempdir / 'outdir')
++
++    def test_default_from_envvar(self):
++        with self.rh_config_context() as (tempdir, env, tar):
++            env['PYTHON_TARFILE_EXTRACTION_FILTER'] = 'fully_trusted'
++            self.check_trusted_default(tar, tempdir)
++
++    def test_empty_envvar(self):
++        """Empty env variable -> default behavior"""
++        with self.rh_config_context() as (tempdir, env, tar):
++            env['PYTHON_TARFILE_EXTRACTION_FILTER'] = ''
++            self.check_rh_default_behavior(tar, tempdir)
++
++    def test_bad_envvar(self):
++        with self.rh_config_context() as (tempdir, env, tar):
++            env['PYTHON_TARFILE_EXTRACTION_FILTER'] = 'unknown!'
++            with self.assertRaises(ValueError):
++                tar.extractall(tempdir / 'outdir')
++
++    def test_envvar_overrides_file(self):
++        lines = ['[tarfile]', 'PYTHON_TARFILE_EXTRACTION_FILTER=data']
++        with self.rh_config_context(lines) as (tempdir, env, tar):
++            env['PYTHON_TARFILE_EXTRACTION_FILTER'] = 'fully_trusted'
++            self.check_trusted_default(tar, tempdir)
++
++    def test_monkeypatch_overrides_envvar(self):
++        with self.rh_config_context(None) as (tempdir, env, tar):
++            env['PYTHON_TARFILE_EXTRACTION_FILTER'] = 'data'
++            with support.swap_attr(
++                    tarfile.TarFile, 'extraction_filter',
++                    staticmethod(tarfile.fully_trusted_filter)
++            ):
++                self.check_trusted_default(tar, tempdir)
++
++
+ class OverwriteTests(archiver_tests.OverwriteTests, unittest.TestCase):
+     testdir = os.path.join(TEMPDIR, "testoverwrite")
+ 
+-- 
+2.44.0
+
