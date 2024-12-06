@@ -1,7 +1,7 @@
-Name:           python3.13
-Version:        3.13.0
+Name:           python3.11
+Version:        3.11.11
 Release:        1%{?dist}
-Summary:        Python programming language, version 3.13
+Summary:        Python programming language, version 3.11
 
 License:        Python
 URL:            https://www.python.org/
@@ -17,7 +17,8 @@ Requires:       alternatives
 Provides:       alternative-for(python)
 
 %global __brp_python_bytecompile %{nil}
-%global __requires_exclude ^/usr/local/bin/python3.13$
+%global __requires_exclude ^/usr/local/bin/python3.11$
+%global __requires_exclude ^/usr/local/bin/python$
 %global alternatives_files %{_bindir}/python3 %{_mandir}/man1/python3.1.gz %{_bindir}/pip3 %{_bindir}/pydoc3 %{_bindir}/idle3 %{_bindir}/python3-config
 
 %description
@@ -40,9 +41,6 @@ export PATH=%{buildroot}/usr/local/bin:$PATH
 echo "Current PATH: $PATH"
 
 make altinstall DESTDIR=%{buildroot}
-
-# delete unused files
-rm -rf %{buildroot}/usr/local/include
 
 # All ghost files controlled by alternatives need to exist for the files
 # section check to succeed
@@ -67,23 +65,26 @@ for FILE in %{alternatives_files}; do
 done
 # set up alternatives
 alternatives \
-    --install %{_bindir}/python3 python3 /usr/local/bin/python3.13 300 \
-    --slave   %{_mandir}/man1/python3.1.gz python3-man /usr/local/share/man/man1/python3.13.1 \
-    --slave   %{_bindir}/pip3 pip3 /usr/local/bin/pip3.13 \
-    --slave   %{_bindir}/pydoc3 pydoc3 /usr/local/bin/pydoc3.13 \
-    --slave   %{_bindir}/idle3 idle3 /usr/local/bin/idle3.13 \
-    --slave   %{_bindir}/python3-config python3-config /usr/local/bin/python3.13-config
+    --install %{_bindir}/python3 python3 /usr/local/bin/python3.11 300 \
+    --slave   %{_mandir}/man1/python3.1.gz python3-man /usr/local/share/man/man1/python3.11.1 \
+    --slave   %{_bindir}/pip3 pip3 /usr/local/bin/pip3.11 \
+    --slave   %{_bindir}/pydoc3 pydoc3 /usr/local/bin/pydoc3.11 \
+    --slave   %{_bindir}/idle3 idle3 /usr/local/bin/idle3.11 \
+    --slave   %{_bindir}/python3-config python3-config /usr/local/bin/python3.11-config
 
 %postun
 # Do this only during uninstall process (not during update)
 if [ $1 -eq 0 ]; then
-    alternatives --remove python3 /usr/local/bin/python3.13
+    alternatives --remove python3 /usr/local/bin/python3.11
     # resteore origin link
     for FILE in %{alternatives_files}; do
         if [ -e "${FILE}.origin_system" ]; then
             mv ${FILE}.origin_system ${FILE}
         fi
     done
+    if [ -d /usr/local/lib/python3.11 ]; then
+        rm -rf /usr/local/lib/python3.11
+    fi
 fi
 
 %files
@@ -96,7 +97,8 @@ fi
 %ghost %{_bindir}/python3-config
 
 /usr/local/bin/*
-/usr/local/lib/python3.13
+/usr/local/lib/python3.11
 /usr/local/lib/pkgconfig/*
-/usr/local/lib/libpython3.13.a
+/usr/local/lib/libpython3.11.a
 /usr/local/share/*
+/usr/local/include/*
