@@ -7,7 +7,7 @@ License:        Python
 URL:            https://www.python.org/
 Source0:        https://www.python.org/ftp/python/%{version}/Python-%{version}.tgz
 
-BuildRequires:  gcc, openssl-devel, bzip2-devel, libffi-devel, zlib-devel
+BuildRequires:  gcc, openssl11-devel, bzip2-devel, libffi-devel, zlib-devel
 
 %if 0%{?amzn}
 Requires:       chkconfig
@@ -30,7 +30,9 @@ Python is an interpreted, interactive, object-oriented programming language.
 export PATH=%{buildroot}/usr/local/bin:$PATH
 echo "Current PATH: $PATH"
 
-./configure --enable-optimizations
+./configure \
+    --enable-optimizations \
+    --with-openssl=/usr
 make %{?_smp_mflags}
 
 %install
