@@ -7,7 +7,7 @@ License:        Python
 URL:            https://www.python.org/
 Source0:        https://www.python.org/ftp/python/%{version}/Python-%{version}.tgz
 
-BuildRequires:  gcc, openssl11-devel, bzip2-devel, libffi-devel, zlib-devel
+BuildRequires:  gcc, openssl11-devel, bzip2-devel, libffi-devel, zlib-devel, sqlite-devel
 
 %if 0%{?amzn}
 Requires:       chkconfig
